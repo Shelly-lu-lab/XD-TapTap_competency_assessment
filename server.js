@@ -3,7 +3,7 @@ const cors = require('cors');
 const path = require('path');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // 启用CORS
 app.use(cors());
@@ -23,7 +23,8 @@ app.post('/api/qwen', async (req, res) => {
             return res.status(400).json({ error: 'Invalid request body' });
         }
 
-        const apiKey = "sk-9fb5bfd2c28c41d48324fef824e9c4e3";
+        // 从环境变量获取API Key，如果没有则使用默认值
+        const apiKey = process.env.QWEN_API_KEY || "sk-9fb5bfd2c28c41d48324fef824e9c4e3";
         const apiUrl = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation";
         
         // 使用阿里云API的正确格式
@@ -82,7 +83,18 @@ app.post('/api/qwen', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
-    console.log(`Open http://localhost:${PORT} in your browser`);
+// 健康检查端点
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// 只有在本地开发时才启动服务器
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+        console.log(`Server running at http://localhost:${PORT}`);
+        console.log(`Open http://localhost:${PORT} in your browser`);
+    });
+}
+
+// 导出app以支持Vercel
+module.exports = app;
