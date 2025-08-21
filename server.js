@@ -88,6 +88,16 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// 处理根路径，提供index.html
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// 处理所有其他路径，提供index.html（用于SPA路由）
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 // 只有在本地开发时才启动服务器
 if (process.env.NODE_ENV !== 'production') {
     app.listen(PORT, () => {
