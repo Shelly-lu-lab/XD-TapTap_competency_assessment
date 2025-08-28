@@ -6,6 +6,7 @@
     <title>心动&TapTap 岗位能力模型（内测版）</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="oauth-config.js"></script>
     <style>
         body {
             font-family: 'Inter', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
@@ -117,6 +118,61 @@
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
+
+    <!-- OAuth Login Modal -->
+    <div id="loginModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-xl bg-white">
+            <div class="flex justify-between items-center pb-3 border-b">
+                <h3 class="text-2xl font-bold text-gray-800">登录验证</h3>
+                <button id="closeLoginModalBtn" class="text-gray-500 hover:text-gray-800 text-3xl font-bold">&times;</button>
+            </div>
+            <div class="mt-6 text-center">
+                <div class="mb-6">
+                    <div class="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
+                        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </div>
+                    <h4 class="text-lg font-semibold text-gray-800 mb-2">统一身份认证</h4>
+                    <p class="text-sm text-gray-600">请使用公司统一身份认证系统登录</p>
+                </div>
+                <button id="loginBtn" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition shadow-lg">
+                    <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+                    </svg>
+                    使用SSO登录
+                </button>
+                <div class="mt-4 text-xs text-gray-500">
+                    登录后将自动跳转到应用主页
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Info Header -->
+    <div id="userInfoHeader" class="bg-white shadow-sm border-b border-gray-200 hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-3">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <span id="userName" class="text-sm font-medium text-gray-800"></span>
+                        <span id="userEmail" class="text-xs text-gray-500 ml-2"></span>
+                    </div>
+                </div>
+                <button id="logoutBtn" class="text-sm text-gray-500 hover:text-gray-700 transition">
+                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                    </svg>
+                    退出登录
+                </button>
+            </div>
+        </div>
+    </div>
 
     <div class="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-6 xl:px-8 py-4 md:py-8">
         <!-- Header Section -->
@@ -540,6 +596,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const interviewTranscript = document.getElementById('interviewTranscript');
     const startAnalysisBtn = document.getElementById('startAnalysisBtn');
     const analysisResultContainer = document.getElementById('analysisResultContainer');
+    
+    // OAuth Elements
+    const loginModal = document.getElementById('loginModal');
+    const closeLoginModalBtn = document.getElementById('closeLoginModalBtn');
+    const loginBtn = document.getElementById('loginBtn');
+    const userInfoHeader = document.getElementById('userInfoHeader');
+    const userName = document.getElementById('userName');
+    const userEmail = document.getElementById('userEmail');
+    const logoutBtn = document.getElementById('logoutBtn');
+    
+    // OAuth State
+    let currentSessionId = null;
+    let currentUser = null;
 
     
     // --- Initialization ---
@@ -549,6 +618,7 @@ document.addEventListener('DOMContentLoaded', () => {
         populateLevels();
         populateModalList();
         addEventListeners();
+        initOAuth();
     }
 
     function populatePrimarySequences() {
@@ -604,6 +674,16 @@ document.addEventListener('DOMContentLoaded', () => {
         tabText.addEventListener('click', () => switchTab('text'));
         tabAudio.addEventListener('click', () => switchTab('audio'));
         startAnalysisBtn.addEventListener('click', handleStartAnalysis);
+        
+        // OAuth Listeners
+        loginBtn.addEventListener('click', handleLogin);
+        closeLoginModalBtn.addEventListener('click', () => loginModal.classList.add('hidden'));
+        logoutBtn.addEventListener('click', handleLogout);
+        loginModal.addEventListener('click', (e) => {
+            if (e.target === loginModal) {
+                loginModal.classList.add('hidden');
+            }
+        });
     }
 
     // --- Handlers ---
@@ -663,6 +743,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Core Logic ---
 
     function updateResults() {
+        // 检查登录状态
+        if (!currentUser) {
+            showLoginModal();
+            return;
+        }
+        
         const secondaryCode = secondarySelect.value;
         const levelCode = levelSelect.value;
 
@@ -998,8 +1084,147 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsContainer.appendChild(p);
     }
     
+    // --- OAuth Functions ---
+    
+    function initOAuth() {
+        // 检查URL参数中是否有sessionId（OAuth回调）
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('sessionId');
+        const error = urlParams.get('error');
+        
+        if (error) {
+            console.error('OAuth error:', error);
+            showError(`登录失败: ${error}`);
+            return;
+        }
+        
+        if (sessionId) {
+            // OAuth回调成功，获取用户信息
+            currentSessionId = sessionId;
+            fetchUserInfo(sessionId);
+            // 清除URL参数
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } else {
+            // 检查是否有现有的会话
+            const savedSessionId = localStorage.getItem('sessionId');
+            if (savedSessionId) {
+                currentSessionId = savedSessionId;
+                checkAuthStatus(savedSessionId);
+            } else {
+                // 没有会话，显示登录模态框
+                showLoginModal();
+            }
+        }
+    }
+    
+    function showLoginModal() {
+        loginModal.classList.remove('hidden');
+    }
+    
+    function hideLoginModal() {
+        loginModal.classList.add('hidden');
+    }
+    
+    function handleLogin() {
+        // 重定向到OAuth登录
+        const loginUrl = `/auth/login?sessionId=${generateState()}`;
+        window.location.href = loginUrl;
+    }
+    
+    function handleLogout() {
+        // 清除本地存储
+        localStorage.removeItem('sessionId');
+        localStorage.removeItem('userInfo');
+        
+        // 调用登出API
+        if (currentSessionId) {
+            fetch('/api/logout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ sessionId: currentSessionId })
+            }).catch(console.error);
+        }
+        
+        // 重置状态
+        currentSessionId = null;
+        currentUser = null;
+        
+        // 隐藏用户信息
+        userInfoHeader.classList.add('hidden');
+        
+        // 显示登录模态框
+        showLoginModal();
+    }
+    
+    async function checkAuthStatus(sessionId) {
+        try {
+            const response = await fetch(`/api/auth/status?sessionId=${sessionId}`);
+            const data = await response.json();
+            
+            if (data.isLoggedIn) {
+                currentUser = data.user;
+                updateUserInfo(data.user);
+                userInfoHeader.classList.remove('hidden');
+                hideLoginModal();
+            } else {
+                // 会话无效，清除本地存储
+                localStorage.removeItem('sessionId');
+                localStorage.removeItem('userInfo');
+                showLoginModal();
+            }
+        } catch (error) {
+            console.error('Auth status check failed:', error);
+            showLoginModal();
+        }
+    }
+    
+    async function fetchUserInfo(sessionId) {
+        try {
+            const response = await fetch(`/api/user?sessionId=${sessionId}`);
+            const data = await response.json();
+            
+            if (response.ok) {
+                currentUser = data.user;
+                currentSessionId = data.sessionId;
+                
+                // 保存到本地存储
+                localStorage.setItem('sessionId', data.sessionId);
+                localStorage.setItem('userInfo', JSON.stringify(data.user));
+                
+                // 更新UI
+                updateUserInfo(data.user);
+                userInfoHeader.classList.remove('hidden');
+                hideLoginModal();
+            } else {
+                console.error('Failed to fetch user info:', data.error);
+                showLoginModal();
+            }
+        } catch (error) {
+            console.error('Fetch user info failed:', error);
+            showLoginModal();
+        }
+    }
+    
+    function updateUserInfo(user) {
+        userName.textContent = user.realname || user.account || '用户';
+        userEmail.textContent = user.email || '';
+    }
+    
+    function showError(message) {
+        // 简单的错误提示
+        alert(message);
+    }
+    
     // --- NEW: Analysis Logic ---
     async function handleStartAnalysis() {
+        // 检查登录状态
+        if (!currentUser) {
+            showLoginModal();
+            return;
+        }
+        
         const transcript = interviewTranscript.value;
         if (!transcript.trim()) {
             alert('请输入面试全文内容！');
