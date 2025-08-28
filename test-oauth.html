@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth 配置测试</title>
+    <script src="oauth-config.js"></script>
+</head>
+<body>
+    <h1>OAuth 配置测试</h1>
+    <div id="config-info"></div>
+    <div id="test-results"></div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const configInfo = document.getElementById('config-info');
+            const testResults = document.getElementById('test-results');
+            
+            // 检查OAuth配置是否正确加载
+            if (typeof OAUTH_CONFIG !== 'undefined') {
+                configInfo.innerHTML = `
+                    <h2>✅ OAuth配置加载成功</h2>
+                    <p><strong>Client ID:</strong> ${OAUTH_CONFIG.CLIENT_ID}</p>
+                    <p><strong>重定向地址:</strong> ${OAUTH_CONFIG.REDIRECT_URI}</p>
+                    <p><strong>SSO认证中心:</strong> ${OAUTH_CONFIG.SSO_BASE_URL}</p>
+                `;
+                
+                // 测试URL构建函数
+                const authorizeUrl = buildAuthorizeUrl('test-state');
+                const tokenUrl = buildTokenUrl('test-code');
+                const profileUrl = buildProfileUrl('test-token');
+                
+                testResults.innerHTML = `
+                    <h2>✅ URL构建测试</h2>
+                    <p><strong>授权URL:</strong> ${authorizeUrl}</p>
+                    <p><strong>令牌URL:</strong> ${tokenUrl}</p>
+                    <p><strong>用户信息URL:</strong> ${profileUrl}</p>
+                `;
+            } else {
+                configInfo.innerHTML = `
+                    <h2>❌ OAuth配置加载失败</h2>
+                    <p>请检查oauth-config.js文件是否正确部署</p>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>
